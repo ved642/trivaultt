@@ -27,6 +27,7 @@ class UserResponse(BaseModel):
     username: str
     email: str
     created_at: datetime
+    has_vault_password: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,3 +37,31 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: UserResponse
+
+
+class VaultStatusResponse(BaseModel):
+    has_vault_password: bool
+
+
+class SetVaultPasswordRequest(BaseModel):
+    vault_password: str = Field(..., min_length=4, max_length=128, description="Vault password or PIN (min 4 chars)")
+    account_password: str = Field(..., min_length=1, description="Account password to verify identity")
+
+
+class VerifyVaultPasswordRequest(BaseModel):
+    vault_password: str = Field(..., min_length=1, description="Vault password or PIN")
+
+
+class ChangeVaultPasswordRequest(BaseModel):
+    current_vault_password: str = Field(..., min_length=1, description="Current vault password")
+    new_vault_password: str = Field(..., min_length=4, max_length=128, description="New vault password (min 4 chars)")
+
+
+class RemoveVaultPasswordRequest(BaseModel):
+    account_password: str = Field(..., min_length=1, description="Account password to confirm removal")
+
+
+class VaultMessageResponse(BaseModel):
+    success: bool = True
+    message: str
+    has_vault_password: bool

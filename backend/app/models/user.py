@@ -21,6 +21,11 @@ class User(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+    vault_password_hash: Optional[str] = Field(default=None, nullable=True)
+
+    @property
+    def has_vault_password(self) -> bool:
+        return self.vault_password_hash is not None
 
     # Relationship to user's stored files
     files: List["StoredFile"] = Relationship(back_populates="owner", cascade_delete=True)

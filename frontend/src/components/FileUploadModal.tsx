@@ -7,6 +7,7 @@ interface FileUploadModalProps {
   onClose: () => void;
   onUploadSuccess: () => void;
   onError: (msg: string) => void;
+  onOpenGoogleDrive?: () => void;
 }
 
 export const FileUploadModal: React.FC<FileUploadModalProps> = ({
@@ -14,6 +15,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
   onClose,
   onUploadSuccess,
   onError,
+  onOpenGoogleDrive,
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -104,6 +106,27 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
 
         {/* Body */}
         <div className="p-6 space-y-4">
+          {onOpenGoogleDrive && (
+            <div className="flex items-center justify-between p-3 rounded-xl bg-vault-950/80 border border-slate-800">
+              <div className="flex items-center space-x-2 text-xs text-slate-300">
+                <span className="text-emerald-400 font-semibold flex items-center space-x-1">
+                  <span>Google Drive</span>
+                </span>
+                <span className="text-slate-400">Want to secure a cloud file?</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenGoogleDrive();
+                }}
+                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition-colors"
+              >
+                Import from Drive →
+              </button>
+            </div>
+          )}
+
           <div
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}

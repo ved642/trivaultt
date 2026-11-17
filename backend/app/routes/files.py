@@ -12,7 +12,9 @@ from app.schemas.files import (
     FileResponse,
     FileDetailResponse,
     FileListResponse,
+    FileSummaryResponse,
     FileRenameRequest,
+    GoogleDriveImportRequest,
     ShardInfo,
 )
 from app.security.dependencies import get_current_user
@@ -22,6 +24,7 @@ from app.services.file_service import (
     StorageNotFoundError,
     StorageIntegrityError,
 )
+from app.services.gdrive_service import GoogleDriveService, GoogleDriveError
 from app.config import get_settings
 
 router = APIRouter(prefix="/files", tags=["Files"])
@@ -37,35 +40,14 @@ def _sanitize_filename(name: Optional[str]) -> str:
     return clean if clean else "unnamed_file"
 
 
-@router.post(
-    "/upload",
-    response_model=FileResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Upload, encrypt, and store a file across 3 shards"
-)
-async def upload_file(
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
-):
-    """
-    Encrypts file contents using Fernet authenticated encryption,
-    splits ciphertext into 3 shards, records checksums in manifest.json,
-    and persists metadata linked to the authenticated user.
-    """
-    settings = get_settings()
-
-    # Read uploaded file contents into memory (bounded by MAX_UPLOAD_SIZE_BYTES)
-    file_bytes = await file.read()
-    if len(file_bytes) > settings.MAX_UPLOAD_SIZE_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Uploaded file exceeds maximum limit of {settings.MAX_UPLOAD_SIZE_BYTES / (1024 * 1024):.1f} MB."
-        )
-
-    clean_filename = _sanitize_filename(file.filename)
-    content_type = file.content_type or "application/octet-stream"
-
+def _persist_encrypted_file(
+    file_bytes: bytes,
+    clean_filename: str,
+    content_type: str,
+    current_user: User,
+    session: Session
+) -> StoredFile:
+    """Helper to encrypt bytes, shard across 3 files, and save StoredFile record in SQLite."""
     # Execute encryption and 3-shard persistence
     try:
         storage_id, _ = FileService.process_and_store_file(
@@ -104,6 +86,92 @@ async def upload_file(
     return stored_file
 
 
+@router.post(
+    "/upload",
+    response_model=FileResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload, encrypt, and store a file across 3 shards"
+)
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Encrypts file contents using Fernet authenticated encryption,
+    splits ciphertext into 3 shards, records checksums in manifest.json,
+    and persists metadata linked to the authenticated user.
+    """
+    settings = get_settings()
+
+    # Read uploaded file contents into memory (bounded by MAX_UPLOAD_SIZE_BYTES)
+    file_bytes = await file.read()
+    if len(file_bytes) > settings.MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Uploaded file exceeds maximum limit of {settings.MAX_UPLOAD_SIZE_BYTES / (1024 * 1024):.1f} MB."
+        )
+
+    clean_filename = _sanitize_filename(file.filename)
+    content_type = file.content_type or "application/octet-stream"
+
+    return _persist_encrypted_file(
+        file_bytes=file_bytes,
+        clean_filename=clean_filename,
+        content_type=content_type,
+        current_user=current_user,
+        session=session
+    )
+
+
+@router.post(
+    "/import-google-drive",
+    response_model=FileResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Import file from Google Drive, encrypt, and store across 3 shards"
+)
+async def import_from_google_drive(
+    request: GoogleDriveImportRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Fetches a file directly from Google Drive using its public share link, file ID,
+    or OAuth access token, encrypts the raw byte stream using Fernet authenticated encryption,
+    splits it into 3 shards, and registers it under the authenticated user.
+    """
+    settings = get_settings()
+
+    try:
+        file_bytes, fetched_name, content_type = await GoogleDriveService.fetch_file(
+            drive_url_or_id=request.drive_url_or_id,
+            custom_filename=request.custom_filename,
+            access_token=request.access_token,
+            max_bytes=settings.MAX_UPLOAD_SIZE_BYTES,
+        )
+    except GoogleDriveError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc)
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to communicate with Google Drive: {str(exc)}"
+        )
+
+    clean_filename = _sanitize_filename(request.custom_filename or fetched_name)
+
+    return _persist_encrypted_file(
+        file_bytes=file_bytes,
+        clean_filename=clean_filename,
+        content_type=content_type,
+        current_user=current_user,
+        session=session
+    )
+
+
+
 @router.get(
     "",
     response_model=FileListResponse,
@@ -131,6 +199,28 @@ def list_files(
         files=[FileResponse.model_validate(f) for f in files],
         total_count=len(files),
         total_size_bytes=total_size
+    )
+
+
+@router.get(
+    "/summary",
+    response_model=FileSummaryResponse,
+    summary="Get aggregated statistics without exposing file records"
+)
+def get_file_summary(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Returns aggregated metrics (total file count, total size) for the
+    Home Dashboard without exposing any file names or documents.
+    """
+    files = session.exec(
+        select(StoredFile).where(StoredFile.user_id == current_user.id)
+    ).all()
+    return FileSummaryResponse(
+        total_count=len(files),
+        total_size_bytes=sum(f.size for f in files)
     )
 
 

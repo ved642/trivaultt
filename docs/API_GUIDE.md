@@ -125,6 +125,35 @@
 }
 ```
 
+### 3.2 Import File from Google Drive
+- **Route:** `POST /files/import-google-drive`
+- **Auth Required:** Yes (`Bearer <token>`)
+- **Content-Type:** `application/json`
+- **Request Body:**
+```json
+{
+  "drive_url_or_id": "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs/view?usp=sharing",
+  "custom_filename": "optional_override.pdf",
+  "access_token": "optional_oauth_bearer_token"
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "id": 2,
+  "filename": "optional_override.pdf",
+  "size": 204800,
+  "created_at": "2026-10-20T10:06:00Z",
+  "shard_count": 3,
+  "content_type": "application/pdf",
+  "user_id": 1
+}
+```
+- **Errors:**
+  - `400 Bad Request`: Invalid link format, private file without token, or empty file.
+  - `413 Payload Too Large`: Exceeds 25 MB limit.
+  - `502 Bad Gateway`: Google Drive network communication error.
+
 ### 3.2 List Owned Files
 - **Route:** `GET /files`
 - **Auth Required:** Yes (`Bearer <token>`)

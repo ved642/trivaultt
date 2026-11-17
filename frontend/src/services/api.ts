@@ -99,6 +99,22 @@ class ApiClient {
     return this.handleResponse<StoredFile>(res);
   }
 
+  async importGoogleDrive(data: {
+    drive_url_or_id: string;
+    custom_filename?: string;
+    access_token?: string;
+  }): Promise<StoredFile> {
+    const res = await fetch(`${API_BASE_URL}/files/import-google-drive`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader(),
+      },
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<StoredFile>(res);
+  }
+
   async downloadFile(fileId: number, filename: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/files/${fileId}/download`, {
       headers: {
@@ -148,6 +164,79 @@ class ApiClient {
       },
     });
     return this.handleResponse<void>(res);
+  }
+
+  // Vault Password & Security
+  async getVaultStatus(): Promise<{ has_vault_password: boolean }> {
+    const res = await fetch(`${API_BASE_URL}/auth/vault-status`, {
+      headers: {
+        ...this.getAuthHeader(),
+      },
+    });
+    return this.handleResponse<{ has_vault_password: boolean }>(res);
+  }
+
+  async setVaultPassword(data: {
+    vault_password: string;
+    account_password: string;
+  }): Promise<{ success: boolean; message: string; has_vault_password: boolean }> {
+    const res = await fetch(`${API_BASE_URL}/auth/vault-password/set`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader(),
+      },
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(res);
+  }
+
+  async verifyVaultPassword(vault_password: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/vault-password/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader(),
+      },
+      body: JSON.stringify({ vault_password }),
+    });
+    return this.handleResponse(res);
+  }
+
+  async changeVaultPassword(data: {
+    current_vault_password: string;
+    new_vault_password: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/vault-password/change`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader(),
+      },
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(res);
+  }
+
+  async removeVaultPassword(account_password: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/vault-password/remove`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader(),
+      },
+      body: JSON.stringify({ account_password }),
+    });
+    return this.handleResponse(res);
+  }
+
+  async getFileSummary(): Promise<{ total_count: number; total_size_bytes: number }> {
+    const res = await fetch(`${API_BASE_URL}/files/summary`, {
+      headers: {
+        ...this.getAuthHeader(),
+      },
+    });
+    return this.handleResponse<{ total_count: number; total_size_bytes: number }>(res);
   }
 }
 
