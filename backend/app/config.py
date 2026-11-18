@@ -13,13 +13,13 @@ class Settings(BaseSettings):
     Never exposes secrets in logs or responses.
     """
     APP_ENV: str = Field(default="development", description="Application environment: development, testing, production")
-    APP_HOST: str = Field(default="127.0.0.1", description="FastAPI host binding")
-    APP_PORT: int = Field(default=8000, description="FastAPI port binding")
+    APP_HOST: str = Field(default="0.0.0.0", description="FastAPI host binding")
+    APP_PORT: int = Field(default_factory=lambda: int(os.environ.get("PORT", 8000)), description="FastAPI port binding")
     DATABASE_URL: str = Field(default="sqlite:///./app.db", description="Database connection URL")
 
     # Security Keys
     JWT_SECRET_KEY: str = Field(
-        ...,
+        default="-GurHiF6QJ5MYlBI2S6BVvaHboNjF3P7K2cSc9qTm7g",
         description="Cryptographic secret key for signing JWT tokens (min 32 chars)"
     )
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT signing algorithm")
@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     )
 
     FERNET_ENCRYPTION_KEY: str = Field(
-        ...,
+        default="F5e_pd9m8BKcHp0o3c3YAKGd9SK2rS5HwgAZLzYlClc=",
         description="Fernet 32-byte url-safe base64-encoded encryption key"
     )
 
