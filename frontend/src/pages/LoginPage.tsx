@@ -72,7 +72,7 @@ export const LoginPage: React.FC = () => {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. alice or alice@example.com"
+                  placeholder="Enter your username or email"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-vault-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-vault-cyan transition-colors"
                   required
                 />
@@ -91,7 +91,7 @@ export const LoginPage: React.FC = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="Enter your password"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-vault-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-vault-cyan transition-colors"
                   required
                 />
